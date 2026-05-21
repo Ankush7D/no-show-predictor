@@ -1,3 +1,19 @@
+Here is the final, full code. It includes all necessary imports, error handling for missing data, and ensures the app flows smoothly from data loading to prediction.
+
+### How to Run
+1.  Save the code below as `app.py`.
+2.  Install the required libraries:
+    ```bash
+    pip install streamlit pandas numpy matplotlib seaborn scikit-learn
+    ```
+3.  Run the app:
+    ```bash
+    streamlit run app.py
+    ```
+
+### The Code (`app.py`)
+
+```python
 # =============================================================================
 #  Patient No-Show Predictor — Cevi AI Internship Project
 #  -------------------------------------------------------
@@ -12,7 +28,7 @@
 #       - A live predictor where you enter one patient's details
 #
 #  HOW TO RUN:
-#    pip install -r requirements.txt
+#    pip install streamlit pandas numpy matplotlib seaborn scikit-learn
 #    streamlit run app.py
 # =============================================================================
 
@@ -624,33 +640,19 @@ else:
 
         # ── Compute metrics ───────────────────────────────────────────────
         y_pred = model.predict(X_test)
+        y_prob = model.predict_proba(X_test)[:, 1]
         report = classification_report(y_test, y_pred, output_dict=True)
-
-        # Guard: ROC-AUC only works for binary classification
-        n_classes = len(np.unique(y_test))
-        if n_classes == 2:
-            y_prob = model.predict_proba(X_test)[:, 1]
-            auc    = roc_auc_score(y_test, y_prob)
-        else:
-            y_prob = model.predict_proba(X_test)
-            auc    = roc_auc_score(y_test, y_prob, multi_class="ovr", average="macro")
+        auc    = roc_auc_score(y_test, y_prob)
 
         # 5-fold cross-validation gives a more reliable AUC estimate
-        try:
-            if n_classes == 2:
-                cv_scores = cross_val_score(model, X, y, cv=5, scoring="roc_auc")
-            else:
-                cv_scores = cross_val_score(model, X, y, cv=5, scoring="roc_auc_ovr_weighted")
-        except Exception:
-            cv_scores = np.array([0.0])
+        cv_scores = cross_val_score(model, X, y, cv=5, scoring="roc_auc")
 
         # ── KPI cards ────────────────────────────────────────────────────
         c1, c2, c3, c4 = st.columns(4)
-        stat_card(c1, f"{auc:.3f}",                      "ROC-AUC")
-        stat_card(c2, f"{report['1']['precision']:.3f}", "Precision (No-Show)")
-        stat_card(c3, f"{report['1']['recall']:.3f}",    "Recall (No-Show)")
-        cv_label = f"{cv_scores.mean():.3f} ± {cv_scores.std():.3f}" if cv_scores.mean() > 0 else "N/A"
-        stat_card(c4, cv_label, "5-Fold CV AUC")
+        stat_card(c1, f"{auc:.3f}",                                 "ROC-AUC")
+        stat_card(c2, f"{report['1']['precision']:.3f}",            "Precision (No-Show)")
+        stat_card(c3, f"{report['1']['recall']:.3f}",               "Recall (No-Show)")
+        stat_card(c4, f"{cv_scores.mean():.3f} ± {cv_scores.std():.3f}", "5-Fold CV AUC")
 
         st.markdown("<br>", unsafe_allow_html=True)
         st.info(
@@ -663,20 +665,17 @@ else:
         # ROC Curve
         with col_a:
             st.subheader("ROC Curve")
-            if n_classes == 2:
-                fpr, tpr, _ = roc_curve(y_test, y_prob)
-                fig, ax = white_fig()
-                ax.plot(fpr, tpr, color=COLORS["green"], linewidth=2.5, label=f"AUC = {auc:.3f}")
-                ax.fill_between(fpr, tpr, alpha=0.12, color=COLORS["green"])
-                ax.plot([0, 1], [0, 1], "--", color=COLORS["gray"],
-                        linewidth=1, label="Random baseline (AUC = 0.5)")
-                ax.set_xlabel("False Positive Rate")
-                ax.set_ylabel("True Positive Rate")
-                ax.legend(loc="lower right", fontsize=9)
-                ax.grid(linestyle="--", alpha=0.35)
-                st.pyplot(fig); plt.close()
-            else:
-                st.info("ROC curve shown for binary classification only.")
+            fpr, tpr, _ = roc_curve(y_test, y_prob)
+            fig, ax = white_fig()
+            ax.plot(fpr, tpr, color=COLORS["green"], linewidth=2.5, label=f"AUC = {auc:.3f}")
+            ax.fill_between(fpr, tpr, alpha=0.12, color=COLORS["green"])
+            ax.plot([0, 1], [0, 1], "--", color=COLORS["gray"],
+                    linewidth=1, label="Random baseline (AUC = 0.5)")
+            ax.set_xlabel("False Positive Rate")
+            ax.set_ylabel("True Positive Rate")
+            ax.legend(loc="lower right", fontsize=9)
+            ax.grid(linestyle="--", alpha=0.35)
+            st.pyplot(fig); plt.close()
 
         # Confusion Matrix
         with col_b:
@@ -863,3 +862,4 @@ else:
                         and click <strong>Predict Risk</strong>
                     </p>
                 </div>""", unsafe_allow_html=True)
+```

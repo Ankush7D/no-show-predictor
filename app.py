@@ -1,4 +1,3 @@
-
 # =============================================================================
 #  Patient No-Show Predictor — Cevi AI Internship Project
 #  -------------------------------------------------------
@@ -625,9 +624,16 @@ else:
 
         # ── Compute metrics ───────────────────────────────────────────────
         y_pred = model.predict(X_test)
-        y_prob = model.predict_proba(X_test)[:, 1]
         report = classification_report(y_test, y_pred, output_dict=True)
-        auc    = roc_auc_score(y_test, y_prob)
+
+        # Guard: ROC-AUC only works for binary classification
+        n_classes = len(np.unique(y_test))
+        if n_classes == 2:
+            y_prob = model.predict_proba(X_test)[:, 1]
+            auc    = roc_auc_score(y_test, y_prob)
+        else:
+            y_prob = model.predict_proba(X_test)
+            auc    = roc_auc_score(y_test, y_prob, multi_class="ovr", average="macro")
 
         # 5-fold cross-validation gives a more reliable AUC estimate
         cv_scores = cross_val_score(model, X, y, cv=5, scoring="roc_auc")
@@ -650,17 +656,20 @@ else:
         # ROC Curve
         with col_a:
             st.subheader("ROC Curve")
-            fpr, tpr, _ = roc_curve(y_test, y_prob)
-            fig, ax = white_fig()
-            ax.plot(fpr, tpr, color=COLORS["green"], linewidth=2.5, label=f"AUC = {auc:.3f}")
-            ax.fill_between(fpr, tpr, alpha=0.12, color=COLORS["green"])
-            ax.plot([0, 1], [0, 1], "--", color=COLORS["gray"],
-                    linewidth=1, label="Random baseline (AUC = 0.5)")
-            ax.set_xlabel("False Positive Rate")
-            ax.set_ylabel("True Positive Rate")
-            ax.legend(loc="lower right", fontsize=9)
-            ax.grid(linestyle="--", alpha=0.35)
-            st.pyplot(fig); plt.close()
+            if n_classes == 2:
+                fpr, tpr, _ = roc_curve(y_test, y_prob)
+                fig, ax = white_fig()
+                ax.plot(fpr, tpr, color=COLORS["green"], linewidth=2.5, label=f"AUC = {auc:.3f}")
+                ax.fill_between(fpr, tpr, alpha=0.12, color=COLORS["green"])
+                ax.plot([0, 1], [0, 1], "--", color=COLORS["gray"],
+                        linewidth=1, label="Random baseline (AUC = 0.5)")
+                ax.set_xlabel("False Positive Rate")
+                ax.set_ylabel("True Positive Rate")
+                ax.legend(loc="lower right", fontsize=9)
+                ax.grid(linestyle="--", alpha=0.35)
+                st.pyplot(fig); plt.close()
+            else:
+                st.info("ROC curve shown for binary classification only.")
 
         # Confusion Matrix
         with col_b:
@@ -847,6 +856,3 @@ else:
                         and click <strong>Predict Risk</strong>
                     </p>
                 </div>""", unsafe_allow_html=True)
-
-                
-                

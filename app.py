@@ -1,4 +1,3 @@
-
 # =============================================================================
 #  Patient No-Show Predictor — Cevi AI Internship Project
 #  -------------------------------------------------------
@@ -13,7 +12,7 @@
 #       - A live predictor where you enter one patient's details
 #
 #  HOW TO RUN:
-#    pip install -r requirements.txt
+#    pip install streamlit pandas numpy matplotlib seaborn scikit-learn
 #    streamlit run app.py
 # =============================================================================
 
@@ -847,8 +846,3 @@ else:
                         and click <strong>Predict Risk</strong>
                     </p>
                 </div>""", unsafe_allow_html=True)
-
-                
-                
-
-make it so that there will be no errors after deploying this in streamlit . give me the final full code

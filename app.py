@@ -622,27 +622,39 @@ else:
             f"and evaluated on the remaining **{test_pct}%** it never saw."
         )
 
-        # ── Compute metrics ───────────────────────────────────────────────
+        # ── Detect binary vs multi-class ONCE, used everywhere below ─────
+        n_classes   = len(np.unique(y))          # use full y, not just y_test
+        is_binary   = (n_classes == 2)
+
+        # ── Compute predictions ───────────────────────────────────────────
         y_pred = model.predict(X_test)
         report = classification_report(y_test, y_pred, output_dict=True)
 
-        # Guard: ROC-AUC only works for binary classification
-        n_classes = len(np.unique(y_test))
-        if n_classes == 2:
+        if is_binary:
             y_prob = model.predict_proba(X_test)[:, 1]
             auc    = roc_auc_score(y_test, y_prob)
+            cv_scoring = "roc_auc"
         else:
-            y_prob = model.predict_proba(X_test)
-            auc    = roc_auc_score(y_test, y_prob, multi_class="ovr", average="macro")
+            y_prob = model.predict_proba(X_test)          # shape (n, k)
+            auc    = roc_auc_score(
+                y_test, y_prob, multi_class="ovr", average="macro"
+            )
+            cv_scoring = "roc_auc_ovr"
 
-        # 5-fold cross-validation gives a more reliable AUC estimate
-        cv_scores = cross_val_score(model, X, y, cv=5, scoring="roc_auc")
+        # 5-fold cross-validation
+        cv_scores = cross_val_score(
+            model, X, y, cv=5, scoring=cv_scoring
+        )
 
         # ── KPI cards ────────────────────────────────────────────────────
+        # report['1'] only exists for binary; fall back gracefully
+        precision_val = report.get("1", report.get("weighted avg", {})).get("precision", 0)
+        recall_val    = report.get("1", report.get("weighted avg", {})).get("recall",    0)
+
         c1, c2, c3, c4 = st.columns(4)
-        stat_card(c1, f"{auc:.3f}",                                 "ROC-AUC")
-        stat_card(c2, f"{report['1']['precision']:.3f}",            "Precision (No-Show)")
-        stat_card(c3, f"{report['1']['recall']:.3f}",               "Recall (No-Show)")
+        stat_card(c1, f"{auc:.3f}",                                       "ROC-AUC")
+        stat_card(c2, f"{precision_val:.3f}",                             "Precision (No-Show)")
+        stat_card(c3, f"{recall_val:.3f}",                                "Recall (No-Show)")
         stat_card(c4, f"{cv_scores.mean():.3f} ± {cv_scores.std():.3f}", "5-Fold CV AUC")
 
         st.markdown("<br>", unsafe_allow_html=True)
@@ -653,13 +665,14 @@ else:
 
         col_a, col_b = st.columns(2)
 
-        # ROC Curve
+        # ── ROC Curve (binary only) ───────────────────────────────────────
         with col_a:
             st.subheader("ROC Curve")
-            if n_classes == 2:
+            if is_binary:
                 fpr, tpr, _ = roc_curve(y_test, y_prob)
                 fig, ax = white_fig()
-                ax.plot(fpr, tpr, color=COLORS["green"], linewidth=2.5, label=f"AUC = {auc:.3f}")
+                ax.plot(fpr, tpr, color=COLORS["green"],
+                        linewidth=2.5, label=f"AUC = {auc:.3f}")
                 ax.fill_between(fpr, tpr, alpha=0.12, color=COLORS["green"])
                 ax.plot([0, 1], [0, 1], "--", color=COLORS["gray"],
                         linewidth=1, label="Random baseline (AUC = 0.5)")
@@ -667,29 +680,43 @@ else:
                 ax.set_ylabel("True Positive Rate")
                 ax.legend(loc="lower right", fontsize=9)
                 ax.grid(linestyle="--", alpha=0.35)
-                st.pyplot(fig); plt.close()
+                st.pyplot(fig)
+                plt.close()
             else:
-                st.info("ROC curve shown for binary classification only.")
+                st.info(
+                    f"Your target has **{n_classes} classes** — "
+                    "ROC curve is only plotted for binary (0/1) targets. "
+                    f"Multi-class AUC (OvR macro) = **{auc:.3f}**"
+                )
 
-        # Confusion Matrix
+        # ── Confusion Matrix ──────────────────────────────────────────────
         with col_b:
             st.subheader("Confusion Matrix")
             st.caption("Rows = actual labels, Columns = what the model predicted")
-            cm = confusion_matrix(y_test, y_pred)
+            cm        = confusion_matrix(y_test, y_pred)
+            cls_labels = [str(c) for c in sorted(np.unique(y_test))]
+
+            # Only use friendly labels for the standard binary case
+            if is_binary:
+                tick_labels = ["Showed Up", "No-Show"]
+            else:
+                tick_labels = cls_labels
+
             fig, ax = white_fig()
             sns.heatmap(
                 cm, annot=True, fmt="d", ax=ax,
                 cmap=sns.light_palette(COLORS["green"], as_cmap=True),
-                xticklabels=["Showed Up", "No-Show"],
-                yticklabels=["Showed Up", "No-Show"],
+                xticklabels=tick_labels,
+                yticklabels=tick_labels,
                 linewidths=2, linecolor="white",
             )
             ax.set_xlabel("Predicted")
             ax.set_ylabel("Actual")
             fig.patch.set_facecolor("#ffffff")
-            st.pyplot(fig); plt.close()
+            st.pyplot(fig)
+            plt.close()
 
-        # Feature Importance — works automatically for any features in the model
+        # ── Feature Importance ────────────────────────────────────────────
         st.subheader("Feature Importance")
         st.caption("Which columns does the model rely on most heavily?")
 
@@ -703,15 +730,16 @@ else:
         ]
 
         fig, ax = plt.subplots(figsize=(10, max(3, len(importance) * 0.45)))
-        ax.barh(importance.index, importance.values, color=imp_colors, edgecolor="none")
+        ax.barh(importance.index, importance.values,
+                color=imp_colors, edgecolor="none")
         ax.set_xlabel("Importance Score")
         ax.grid(axis="x", linestyle="--", alpha=0.35)
         ax.spines[["top", "right"]].set_visible(False)
         fig.patch.set_facecolor("#ffffff")
         ax.set_facecolor("#ffffff")
-        st.pyplot(fig); plt.close()
+        st.pyplot(fig)
+        plt.close()
         st.caption("🟢 High importance  |  🔵 Moderate importance")
-
 
     # =========================================================================
     #  PAGE 3 — LIVE PREDICTOR

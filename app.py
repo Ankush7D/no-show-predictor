@@ -1,19 +1,4 @@
-Here is the final, full code. It includes all necessary imports, error handling for missing data, and ensures the app flows smoothly from data loading to prediction.
 
-### How to Run
-1.  Save the code below as `app.py`.
-2.  Install the required libraries:
-    ```bash
-    pip install streamlit pandas numpy matplotlib seaborn scikit-learn
-    ```
-3.  Run the app:
-    ```bash
-    streamlit run app.py
-    ```
-
-### The Code (`app.py`)
-
-```python
 # =============================================================================
 #  Patient No-Show Predictor — Cevi AI Internship Project
 #  -------------------------------------------------------
@@ -28,7 +13,7 @@ Here is the final, full code. It includes all necessary imports, error handling 
 #       - A live predictor where you enter one patient's details
 #
 #  HOW TO RUN:
-#    pip install streamlit pandas numpy matplotlib seaborn scikit-learn
+#    pip install -r requirements.txt
 #    streamlit run app.py
 # =============================================================================
 
@@ -862,4 +847,8 @@ else:
                         and click <strong>Predict Risk</strong>
                     </p>
                 </div>""", unsafe_allow_html=True)
-```
+
+                
+                
+
+make it so that there will be no errors after deploying this in streamlit . give me the final full code

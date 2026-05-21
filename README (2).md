@@ -165,8 +165,7 @@ CONFIG = {
 - [ ] REST API endpoint (`/score` POST) for direct integration with outreach pipelines
 - [ ] SHAP values for per-patient explainability ("why is this patient high risk?")
 - [ ] Batch scoring — upload tomorrow's appointments, export a ranked priority CSV
-- [ ] Weekly model retraining with feedback from actual no-show outcomes
-- [ ] Multi-clinic support with tenant isolation
+
 
 ---
 
